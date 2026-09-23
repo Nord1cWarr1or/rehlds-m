@@ -21,8 +21,10 @@
 #include "view/console_input.hpp"
 #include "util/linux/system/error.hpp"
 #include "util/logger.hpp"
+#include "util/string.hpp"
 #include "view/linux/terminal_settings.hpp"
 #include "view/linux/tty_redirect.hpp"
+#include "view/utf8.hpp"
 #include <array>
 #include <cctype>
 #include <poll.h>
@@ -145,8 +147,43 @@ namespace View {
                 case '\x08': handle_ctrl_backspace(); break;
                 case '\x17': handle_ctrl_w(); break;
                 case '\t': handle_tab(); break;
-                default: handle_char(static_cast<std::string::value_type>(input_char)); break;
+                default: handle_utf8_input(input_char); break;
             }
         }
+    }
+
+    void ConsoleInput::handle_utf8_input(const int first_byte)
+    {
+        if (first_byte < 0x80) {
+            const auto character = static_cast<std::string::value_type>(first_byte);
+
+            if (Util::str::is_printable_char(character)) {
+                editor_->insert_char(character);
+            }
+
+            return;
+        }
+
+        const auto sequence_length = utf8::sequence_length(static_cast<unsigned char>(first_byte));
+
+        if (0 == sequence_length) {
+            return;
+        }
+
+        std::string sequence;
+        sequence.reserve(sequence_length);
+        sequence.push_back(static_cast<std::string::value_type>(first_byte));
+
+        for (auto i = sequence_length - 1; i > 0; --i) {
+            const auto continuation = read_char_from_stdin();
+
+            if ((continuation < 0x80) || (continuation > 0xBF)) {
+                return;
+            }
+
+            sequence.push_back(static_cast<std::string::value_type>(continuation));
+        }
+
+        editor_->insert_text(sequence);
     }
 }

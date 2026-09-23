@@ -27,6 +27,7 @@ target_sources("${TARGET_NAME}"
     "${HPP_SOURCES_DIR}/console_input.hpp"
     "${HPP_SOURCES_DIR}/console_view.hpp"
     "${HPP_SOURCES_DIR}/input_line_editor.hpp"
+    "${HPP_SOURCES_DIR}/utf8.hpp"
 
   PRIVATE
     "${CPP_SOURCES_DIR}/console_input.cpp"

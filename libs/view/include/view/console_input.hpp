@@ -96,6 +96,9 @@ namespace View {
 #ifndef _WIN32
         /// Handles ANSI escape codes.
         void handle_escape();
+
+        /// Handles a UTF-8 input sequence starting with the given byte.
+        void handle_utf8_input(int first_byte);
 #endif
         /// Handles the up arrow key.
         void handle_up_arrow();

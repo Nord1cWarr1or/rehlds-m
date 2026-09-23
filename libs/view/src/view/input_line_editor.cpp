@@ -19,14 +19,14 @@
  */
 
 #include "view/input_line_editor.hpp"
+#include "view/utf8.hpp"
 #include <cassert>
-#include <cctype>
 
 namespace {
     /// Checks whether the character is a word delimiter.
-    bool is_space(const char ch)
+    bool is_space(const char32_t ch)
     {
-        return std::isspace(static_cast<unsigned char>(ch)) != 0;
+        return (U' ' == ch) || (U'\t' == ch);
     }
 }
 
@@ -38,15 +38,7 @@ namespace View {
 
     void InputLineEditor::insert_char(const char ch)
     {
-        const std::lock_guard lock{mutex_};
-
-        line_.insert(cursor_, 1, ch);
-        *stream_ << (line_.c_str() + cursor_);
-        ++cursor_;
-
-        for (auto i = line_.length(); i > cursor_; --i) {
-            *stream_ << '\b';
-        }
+        insert_text(std::string_view{&ch, 1});
     }
 
     void InputLineEditor::insert_text(const std::string_view text)
@@ -55,13 +47,22 @@ namespace View {
             return;
         }
 
+        const auto characters = utf8::decode(text);
+
+        if (characters.empty()) {
+            return;
+        }
+
         const std::lock_guard lock{mutex_};
 
-        line_.insert(cursor_, text);
-        *stream_ << (line_.c_str() + cursor_);
-        cursor_ += text.length();
+        line_.insert(cursor_, characters);
+        print_tail();
 
-        for (auto i = line_.length(); i > cursor_; --i) {
+        cursor_ += characters.length();
+
+        const auto tail_length = line_.length() - cursor_;
+
+        for (auto i = tail_length; i > 0; --i) {
             *stream_ << '\b';
         }
     }
@@ -78,10 +79,12 @@ namespace View {
         line_.erase(cursor_, 1);
 
         *stream_ << '\b';
-        *stream_ << (line_.c_str() + cursor_);
+        print_tail();
         *stream_ << ' ';
 
-        for (auto i = line_.length() + 1; i > cursor_; --i) {
+        const auto tail_length = line_.length() - cursor_;
+
+        for (auto i = tail_length + 1; i > 0; --i) {
             *stream_ << '\b';
         }
     }
@@ -95,10 +98,12 @@ namespace View {
         }
 
         line_.erase(cursor_, 1);
-        *stream_ << (line_.c_str() + cursor_);
+        print_tail();
         *stream_ << ' ';
 
-        for (auto i = line_.length() + 1; i > cursor_; --i) {
+        const auto tail_length = line_.length() - cursor_;
+
+        for (auto i = tail_length + 1; i > 0; --i) {
             *stream_ << '\b';
         }
     }
@@ -123,7 +128,7 @@ namespace View {
             return;
         }
 
-        *stream_ << line_[cursor_];
+        utf8::append_to_stream(*stream_, line_[cursor_]);
         ++cursor_;
     }
 
@@ -141,10 +146,8 @@ namespace View {
     {
         const std::lock_guard lock{mutex_};
 
-        while (cursor_ < line_.length()) {
-            *stream_ << line_[cursor_];
-            ++cursor_;
-        }
+        print_tail();
+        cursor_ = line_.length();
     }
 
     void InputLineEditor::word_left()
@@ -183,7 +186,7 @@ namespace View {
         }
 
         while (cursor_ < target) {
-            *stream_ << line_[cursor_];
+            utf8::append_to_stream(*stream_, line_[cursor_]);
             ++cursor_;
         }
     }
@@ -218,15 +221,15 @@ namespace View {
             *stream_ << '\b';
         }
 
-        *stream_ << (line_.c_str() + cursor_);
+        print_tail();
 
         for (auto i = removed; i > 0; --i) {
             *stream_ << ' ';
         }
 
-        const auto total_length = line_.length();
+        const auto tail_length = line_.length() - cursor_;
 
-        for (auto i = total_length + removed; i > cursor_; --i) {
+        for (auto i = tail_length + removed; i > 0; --i) {
             *stream_ << '\b';
         }
     }
@@ -257,36 +260,38 @@ namespace View {
 
         const auto removed = end - cursor_;
         line_.erase(cursor_, removed);
-        *stream_ << (line_.c_str() + cursor_);
+        print_tail();
 
         for (auto i = removed; i > 0; --i) {
             *stream_ << ' ';
         }
 
-        const auto total_length = line_.length();
+        const auto tail_length = line_.length() - cursor_;
 
-        for (auto i = total_length + removed; i > cursor_; --i) {
+        for (auto i = tail_length + removed; i > 0; --i) {
             *stream_ << '\b';
         }
     }
 
     void InputLineEditor::set_line(const std::string_view text)
     {
+        const auto characters = utf8::decode(text);
+
         const std::lock_guard lock{mutex_};
 
         if (!line_.empty()) {
             *stream_ << "\r\x1B[K";
         }
 
-        line_ = text;
+        line_ = characters;
         cursor_ = line_.length();
-        *stream_ << line_;
+        *stream_ << utf8::encode(line_);
     }
 
     std::string InputLineEditor::line() const
     {
         const std::lock_guard lock{mutex_};
-        return line_;
+        return utf8::encode(line_);
     }
 
     std::string InputLineEditor::submit_line()
@@ -299,15 +304,20 @@ namespace View {
         line_.clear();
         cursor_ = 0;
 
-        return input;
+        return utf8::encode(input);
     }
 
     void InputLineEditor::redraw()
     {
-        *stream_ << '\r' << line_ << '\r';
+        *stream_ << '\r' << utf8::encode(line_) << '\r';
 
         if (cursor_ > 0) {
             *stream_ << "\x1B[" << cursor_ << 'C';
         }
+    }
+
+    void InputLineEditor::print_tail()
+    {
+        *stream_ << utf8::encode(line_.substr(cursor_));
     }
 }

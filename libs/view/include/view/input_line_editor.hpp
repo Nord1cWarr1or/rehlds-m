@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include <cstddef>
 #include <iostream>
 #include <mutex>
 #include <ostream>
@@ -30,6 +29,12 @@
 namespace View {
     /**
      * @brief Maintains and renders the console input line.
+     *
+     * The input line is stored as Unicode code points and rendered as UTF-8, so
+     * multi-byte characters (e.g. Cyrillic) are handled as single characters by
+     * every editing operation. Cursor positions and word boundaries are counted
+     * in characters; rendering assumes every character occupies one terminal
+     * column (wide CJK characters are not supported).
      *
      * All state mutations and the corresponding terminal output are serialized
      * with an internal mutex. Console output paths (see \c ConsoleView::print)
@@ -59,16 +64,18 @@ namespace View {
         InputLineEditor& operator=(const InputLineEditor&) = delete;
 
         /**
-         * @brief Inserts a character at the current cursor position.
+         * @brief Inserts a single-byte character at the current cursor position.
          *
          * @param ch The character to insert.
          */
         void insert_char(char ch);
 
         /**
-         * @brief Inserts text at the current cursor position.
+         * @brief Inserts UTF-8 encoded text at the current cursor position.
          *
-         * @param text The text to insert.
+         * Invalid UTF-8 sequences are skipped.
+         *
+         * @param text The UTF-8 encoded text to insert.
          */
         void insert_text(std::string_view text);
 
@@ -135,21 +142,21 @@ namespace View {
         /**
          * @brief Replaces the whole input line (input history navigation).
          *
-         * @param text The new input line.
+         * @param text The new input line (UTF-8 encoded).
          */
         void set_line(std::string_view text);
 
         /**
          * @brief Returns a copy of the current input line.
          *
-         * @return The current input line.
+         * @return The current input line (UTF-8 encoded).
          */
         [[nodiscard]] std::string line() const;
 
         /**
          * @brief Terminates the input line and returns its contents.
          *
-         * @return The submitted input line.
+         * @return The submitted input line (UTF-8 encoded).
          */
         std::string submit_line();
 
@@ -187,16 +194,23 @@ namespace View {
          */
         void redraw();
 
+        /**
+         * @brief Prints the part of the input line after the cursor.
+         *
+         * The mutex must be held by the caller.
+         */
+        void print_tail();
+
         /// Guards the input line state and rendering output.
         mutable std::mutex mutex_{};
 
         /// The output stream used to render the input line.
         std::ostream* stream_{};
 
-        /// The current input line.
-        std::string line_{};
+        /// The current input line (one element per character).
+        std::u32string line_{};
 
-        /// The current cursor position in the input line.
-        std::string::size_type cursor_{};
+        /// The current cursor position in the input line (in characters).
+        std::u32string::size_type cursor_{};
     };
 }

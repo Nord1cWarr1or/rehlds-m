@@ -297,4 +297,141 @@ namespace {
 
         EXPECT_EQ(editor.line(), "foo bar");
     }
+
+    TEST_F(InputLineEditorTest, InsertCyrillicRoundtrip)
+    {
+        editor.insert_text("привет");
+
+        EXPECT_EQ(editor.line(), "привет");
+        EXPECT_NE(stream.str().find("привет"), std::string::npos);
+    }
+
+    TEST_F(InputLineEditorTest, InsertMixedAsciiAndCyrillic)
+    {
+        editor.insert_text("ban: причина 1");
+
+        EXPECT_EQ(editor.line(), "ban: причина 1");
+    }
+
+    TEST_F(InputLineEditorTest, BackspaceRemovesWholeCyrillicChar)
+    {
+        editor.insert_text("прив");
+
+        editor.backspace();
+
+        EXPECT_EQ(editor.line(), "при");
+    }
+
+    TEST_F(InputLineEditorTest, CursorMovementCountsCodepoints)
+    {
+        editor.insert_text("привет");
+
+        editor.left();
+        editor.left();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "привXет");
+    }
+
+    TEST_F(InputLineEditorTest, InsertTextAtCursorInsideCyrillic)
+    {
+        editor.insert_text("привет");
+
+        editor.left();
+        editor.left();
+        editor.insert_text("XY");
+
+        EXPECT_EQ(editor.line(), "привXYет");
+    }
+
+    TEST_F(InputLineEditorTest, DeleteCharRemovesWholeCyrillicChar)
+    {
+        editor.insert_text("привет");
+        editor.home();
+
+        editor.delete_char();
+
+        EXPECT_EQ(editor.line(), "ривет");
+    }
+
+    TEST_F(InputLineEditorTest, FourByteCharRoundtripAndBackspace)
+    {
+        const auto emoji = std::string{"\xF0\x9F\x98\x80"};
+
+        editor.insert_text(emoji);
+        EXPECT_EQ(editor.line(), emoji);
+
+        editor.backspace();
+        EXPECT_EQ(editor.line(), "");
+    }
+
+    TEST_F(InputLineEditorTest, WordLeftStopsAtCyrillicWordStart)
+    {
+        editor.insert_text("причина тест");
+
+        editor.word_left();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "причина Xтест");
+    }
+
+    TEST_F(InputLineEditorTest, KillPrevWordWithCyrillic)
+    {
+        editor.insert_text("ban причина");
+
+        editor.kill_prev_word();
+
+        EXPECT_EQ(editor.line(), "ban ");
+    }
+
+    TEST_F(InputLineEditorTest, InvalidUtf8SequencesAreDropped)
+    {
+        editor.insert_text("ok");
+        stream.str("");
+
+        editor.insert_text("\xD0");
+        editor.insert_text("\xFF");
+        editor.insert_text("\xD0\x28");
+        editor.insert_text("\x80");
+
+        EXPECT_EQ(editor.line(), "ok");
+        EXPECT_EQ(stream.str(), "");
+    }
+
+    TEST_F(InputLineEditorTest, OverlongAndSurrogateSequencesAreDropped)
+    {
+        editor.insert_text("\xC0\x80");
+        editor.insert_text("\xED\xA0\x80");
+
+        EXPECT_EQ(editor.line(), "");
+    }
+
+    TEST_F(InputLineEditorTest, SetLineWithCyrillic)
+    {
+        editor.set_line("тест 123");
+
+        EXPECT_EQ(editor.line(), "тест 123");
+    }
+
+    TEST_F(InputLineEditorTest, SubmitLineWithCyrillic)
+    {
+        editor.insert_text("тест");
+
+        EXPECT_EQ(editor.submit_line(), "тест");
+        EXPECT_EQ(editor.line(), "");
+    }
+
+    TEST_F(InputLineEditorTest, SuspendedRestoreCountsCodepoints)
+    {
+        editor.insert_text("привет");
+
+        editor.left();
+        editor.left();
+        stream.str("");
+
+        editor.with_suspended([] {
+        });
+
+        EXPECT_NE(stream.str().find("\x1B[4C"), std::string::npos);
+    }
 }
