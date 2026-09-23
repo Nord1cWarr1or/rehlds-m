@@ -20,6 +20,15 @@
 
 #include "view/input_line_editor.hpp"
 #include <cassert>
+#include <cctype>
+
+namespace {
+    /// Checks whether the character is a word delimiter.
+    bool is_space(const char ch)
+    {
+        return std::isspace(static_cast<unsigned char>(ch)) != 0;
+    }
+}
 
 namespace View {
     InputLineEditor::InputLineEditor(std::ostream* stream) : stream_(stream)
@@ -135,6 +144,129 @@ namespace View {
         while (cursor_ < line_.length()) {
             *stream_ << line_[cursor_];
             ++cursor_;
+        }
+    }
+
+    void InputLineEditor::word_left()
+    {
+        const std::lock_guard lock{mutex_};
+
+        auto target = cursor_;
+
+        while ((0 < target) && is_space(line_[target - 1])) {
+            --target;
+        }
+
+        while ((0 < target) && !is_space(line_[target - 1])) {
+            --target;
+        }
+
+        while (cursor_ > target) {
+            *stream_ << '\b';
+            --cursor_;
+        }
+    }
+
+    void InputLineEditor::word_right()
+    {
+        const std::lock_guard lock{mutex_};
+
+        const auto length = line_.length();
+        auto target = cursor_;
+
+        while ((target < length) && is_space(line_[target])) {
+            ++target;
+        }
+
+        while ((target < length) && !is_space(line_[target])) {
+            ++target;
+        }
+
+        while (cursor_ < target) {
+            *stream_ << line_[cursor_];
+            ++cursor_;
+        }
+    }
+
+    void InputLineEditor::kill_prev_word()
+    {
+        const std::lock_guard lock{mutex_};
+
+        if (0 == cursor_) {
+            return;
+        }
+
+        auto start = cursor_;
+
+        while ((0 < start) && is_space(line_[start - 1])) {
+            --start;
+        }
+
+        while ((0 < start) && !is_space(line_[start - 1])) {
+            --start;
+        }
+
+        if (start == cursor_) {
+            return;
+        }
+
+        const auto removed = cursor_ - start;
+        line_.erase(start, removed);
+        cursor_ = start;
+
+        for (auto i = removed; i > 0; --i) {
+            *stream_ << '\b';
+        }
+
+        *stream_ << (line_.c_str() + cursor_);
+
+        for (auto i = removed; i > 0; --i) {
+            *stream_ << ' ';
+        }
+
+        const auto total_length = line_.length();
+
+        for (auto i = total_length + removed; i > cursor_; --i) {
+            *stream_ << '\b';
+        }
+    }
+
+    void InputLineEditor::kill_next_word()
+    {
+        const std::lock_guard lock{mutex_};
+
+        const auto length = line_.length();
+
+        if (cursor_ >= length) {
+            return;
+        }
+
+        auto end = cursor_;
+
+        while ((end < length) && is_space(line_[end])) {
+            ++end;
+        }
+
+        while ((end < length) && !is_space(line_[end])) {
+            ++end;
+        }
+
+        if (end == cursor_) {
+            return;
+        }
+
+        const auto removed = end - cursor_;
+        line_.erase(cursor_, removed);
+        *stream_ << (line_.c_str() + cursor_);
+
+        for (auto i = removed; i > 0; --i) {
+            *stream_ << ' ';
+        }
+
+        const auto total_length = line_.length();
+
+        for (auto i = total_length + removed; i > cursor_; --i) {
+            *stream_ << '\b';
         }
     }
 

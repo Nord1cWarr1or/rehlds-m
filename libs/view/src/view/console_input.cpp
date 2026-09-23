@@ -178,6 +178,31 @@ namespace View {
         editor_->end();
     }
 
+    void ConsoleInput::handle_ctrl_left()
+    {
+        editor_->word_left();
+    }
+
+    void ConsoleInput::handle_ctrl_right()
+    {
+        editor_->word_right();
+    }
+
+    void ConsoleInput::handle_ctrl_backspace()
+    {
+        editor_->kill_prev_word();
+    }
+
+    void ConsoleInput::handle_ctrl_delete()
+    {
+        editor_->kill_next_word();
+    }
+
+    void ConsoleInput::handle_ctrl_w()
+    {
+        editor_->kill_prev_word();
+    }
+
     void ConsoleInput::handle_tab()
     {
         const auto& commands = input_presenter_->find_command_matches(editor_->line());

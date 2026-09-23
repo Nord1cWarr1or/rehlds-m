@@ -103,6 +103,36 @@ namespace View {
         void end();
 
         /**
+         * @brief Moves the cursor to the beginning of the word before the cursor.
+         *
+         * Words are delimited by whitespace.
+         */
+        void word_left();
+
+        /**
+         * @brief Moves the cursor to the end of the word after the cursor.
+         *
+         * Words are delimited by whitespace.
+         */
+        void word_right();
+
+        /**
+         * @brief Removes the word before the cursor.
+         *
+         * Any whitespace between the cursor and the word is removed as well.
+         * Words are delimited by whitespace.
+         */
+        void kill_prev_word();
+
+        /**
+         * @brief Removes the word after the cursor.
+         *
+         * Any whitespace between the cursor and the word is removed as well.
+         * Words are delimited by whitespace.
+         */
+        void kill_next_word();
+
+        /**
          * @brief Replaces the whole input line (input history navigation).
          *
          * @param text The new input line.

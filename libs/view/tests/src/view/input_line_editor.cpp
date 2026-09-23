@@ -177,4 +177,124 @@ namespace {
 
         EXPECT_EQ(stream.str(), "plain");
     }
+
+    TEST_F(InputLineEditorTest, WordLeftJumpsToWordStart)
+    {
+        editor.insert_text("foo bar");
+
+        editor.word_left();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "foo Xbar");
+    }
+
+    TEST_F(InputLineEditorTest, WordLeftSkipsSpacesBeforeWord)
+    {
+        editor.insert_text("foo  bar");
+
+        editor.word_left();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "foo  Xbar");
+    }
+
+    TEST_F(InputLineEditorTest, WordLeftAtLineStartDoesNothing)
+    {
+        editor.insert_text("foo bar");
+        editor.home();
+
+        editor.word_left();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "Xfoo bar");
+    }
+
+    TEST_F(InputLineEditorTest, WordRightJumpsPastWord)
+    {
+        editor.insert_text("foo bar");
+        editor.home();
+
+        editor.word_right();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "fooX bar");
+    }
+
+    TEST_F(InputLineEditorTest, WordRightSkipsSpacesAfterCursor)
+    {
+        editor.insert_text("foo  bar");
+        editor.home();
+
+        editor.word_right();
+        editor.word_right();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "foo  barX");
+    }
+
+    TEST_F(InputLineEditorTest, WordRightAtLineEndDoesNothing)
+    {
+        editor.insert_text("foo bar");
+
+        editor.word_right();
+        editor.insert_char('X');
+
+        EXPECT_EQ(editor.line(), "foo barX");
+    }
+
+    TEST_F(InputLineEditorTest, KillPrevWordRemovesWordBeforeCursor)
+    {
+        editor.insert_text("foo bar");
+
+        editor.kill_prev_word();
+
+        EXPECT_EQ(editor.line(), "foo ");
+    }
+
+    TEST_F(InputLineEditorTest, KillPrevWordEatsSpacesBeforeCursor)
+    {
+        editor.insert_text("foo bar  ");
+
+        editor.kill_prev_word();
+
+        EXPECT_EQ(editor.line(), "foo ");
+    }
+
+    TEST_F(InputLineEditorTest, KillPrevWordOnEmptyLineDoesNothing)
+    {
+        editor.kill_prev_word();
+
+        EXPECT_EQ(editor.line(), "");
+        EXPECT_EQ(stream.str(), "");
+    }
+
+    TEST_F(InputLineEditorTest, KillNextWordRemovesWordAfterCursor)
+    {
+        editor.insert_text("foo bar");
+        editor.home();
+
+        editor.kill_next_word();
+
+        EXPECT_EQ(editor.line(), " bar");
+    }
+
+    TEST_F(InputLineEditorTest, KillNextWordEatsSpacesAfterCursor)
+    {
+        editor.insert_text("foo  bar");
+        editor.home();
+        editor.word_right();
+
+        editor.kill_next_word();
+
+        EXPECT_EQ(editor.line(), "foo");
+    }
+
+    TEST_F(InputLineEditorTest, KillNextWordAtLineEndDoesNothing)
+    {
+        editor.insert_text("foo bar");
+
+        editor.kill_next_word();
+
+        EXPECT_EQ(editor.line(), "foo bar");
+    }
 }

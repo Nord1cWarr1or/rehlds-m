@@ -24,8 +24,10 @@
 #include "view/linux/terminal_settings.hpp"
 #include "view/linux/tty_redirect.hpp"
 #include <array>
+#include <cctype>
 #include <poll.h>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 
 namespace {
@@ -46,6 +48,14 @@ namespace {
 
         return input_char;
     }
+
+    /// Returns the last sub-parameter of a CSI parameter string (e.g. "1;5" -> "5").
+    std::string_view last_csi_subparameter(const std::string& parameters)
+    {
+        const auto position = parameters.rfind(';');
+
+        return std::string_view{parameters}.substr((std::string::npos == position) ? 0 : (position + 1));
+    }
 }
 
 namespace View {
@@ -55,20 +65,61 @@ namespace View {
             return;
         }
 
-        switch (read_char_from_stdin()) {
+        auto parameters = std::string{};
+        auto final_byte = '\0';
+
+        for (auto ch = read_char_from_stdin();; ch = read_char_from_stdin()) {
+            if (0 == ch) {
+                return;
+            }
+
+            if ((std::isdigit(static_cast<unsigned char>(ch)) != 0) || (';' == ch)) {
+                parameters.push_back(static_cast<std::string::value_type>(ch));
+                continue;
+            }
+
+            final_byte = static_cast<std::string::value_type>(ch);
+            break;
+        }
+
+        if ('~' == final_byte) {
+            if ("3;5" == parameters) {
+                handle_ctrl_delete();
+            }
+            else if ("3" == parameters) {
+                handle_delete();
+            }
+
+            return;
+        }
+
+        // Control is reported as the modifier code 5 (xterm-style "ESC[1;5D", urxvt-style "ESC[5D")
+        const auto control = ("5" == last_csi_subparameter(parameters));
+
+        switch (final_byte) {
             case 'A': handle_up_arrow(); break;
             case 'B': handle_down_arrow(); break;
-            case 'C': handle_right_arrow(); break;
-            case 'D': handle_left_arrow(); break;
-            case 'F': handle_end(); break;
-            case 'H': handle_home(); break;
-            case '3': {
-                if ('~' == read_char_from_stdin()) {
-                    handle_delete();
+            case 'C':
+                if (control) {
+                    handle_ctrl_right();
+                }
+                else {
+                    handle_right_arrow();
                 }
 
                 break;
-            }
+            case 'D':
+                if (control) {
+                    handle_ctrl_left();
+                }
+                else {
+                    handle_left_arrow();
+                }
+
+                break;
+            case 'F': handle_end(); break;
+            case 'H': handle_home(); break;
+            default: break;
         }
     }
 
@@ -90,8 +141,9 @@ namespace View {
                 case '\0': continue;
                 case '\n': handle_newline(); break;
                 case '\x1B': handle_escape(); break;
-                case '\x7F':
-                case '\b': handle_backspace(); break;
+                case '\x7F': handle_backspace(); break;
+                case '\x08': handle_ctrl_backspace(); break;
+                case '\x17': handle_ctrl_w(); break;
                 case '\t': handle_tab(); break;
                 default: handle_char(static_cast<std::string::value_type>(input_char)); break;
             }

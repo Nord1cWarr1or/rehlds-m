@@ -121,6 +121,21 @@ namespace View {
         /// Handles the end key.
         void handle_end();
 
+        /// Handles the control + left arrow key.
+        void handle_ctrl_left();
+
+        /// Handles the control + right arrow key.
+        void handle_ctrl_right();
+
+        /// Handles the control + backspace key.
+        void handle_ctrl_backspace();
+
+        /// Handles the control + delete key.
+        void handle_ctrl_delete();
+
+        /// Handles the control + W key.
+        void handle_ctrl_w();
+
         /// Handles the tab key.
         void handle_tab();
 
