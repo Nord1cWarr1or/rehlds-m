@@ -26,9 +26,11 @@ target_sources("${TARGET_NAME}"
     "${HPP_SOURCES_DIR}/base_view.hpp"
     "${HPP_SOURCES_DIR}/console_input.hpp"
     "${HPP_SOURCES_DIR}/console_view.hpp"
+    "${HPP_SOURCES_DIR}/input_line_editor.hpp"
 
   PRIVATE
     "${CPP_SOURCES_DIR}/console_input.cpp"
+    "${CPP_SOURCES_DIR}/input_line_editor.cpp"
 )
 
 if(WIN32)
@@ -68,3 +70,11 @@ target_link_libraries("${TARGET_NAME}"
     "${LIB_PRESENTER}"
     "${LIB_UTIL}"
 )
+
+#-------------------------------------------------------------------------------
+# Unit Tests
+#-------------------------------------------------------------------------------
+
+if(BUILD_UNIT_TESTS)
+  add_subdirectory("tests")
+endif()

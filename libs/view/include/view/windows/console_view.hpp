@@ -24,8 +24,10 @@
 
 #include "util/log_output.hpp"
 #include "view/base_view.hpp"
+#include "view/input_line_editor.hpp"
 #include <fmt/core.h>
 #include <cstdio>
+#include <memory>
 #include <string_view>
 #include <Windows.h>
 
@@ -36,9 +38,12 @@ namespace View {
     class ConsoleView final : public BaseView, public Util::LogOutput {
       public:
         /**
-         * @brief Default constructor.
+         * @brief Constructs a new ConsoleView object.
+         *
+         * @param editor A shared pointer to the input line editor. Not used on Windows,
+         * accepted to keep the launcher wiring platform-independent.
          */
-        ConsoleView();
+        explicit ConsoleView(const std::shared_ptr<InputLineEditor>& editor);
 
         /**
          * @brief Move constructor.
@@ -92,6 +97,9 @@ namespace View {
         void write_log(std::string_view message) override;
 
       private:
+        /// The input line editor. Unused on Windows.
+        std::shared_ptr<InputLineEditor> editor_;
+
         /// A handle to the standard output stream.
         ::HANDLE stdout_handle_;
 

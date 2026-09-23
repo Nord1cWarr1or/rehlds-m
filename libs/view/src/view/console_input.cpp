@@ -9,7 +9,7 @@
  * NON-INFRINGEMENT, TITLE AND FITNESS FOR A PARTICULAR PURPOSE.
  *
  * LIMITATION OF LIABILITY. IN NO EVENT SHALL VALVE OR ITS SUPPLIERS BE LIABLE
- * FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER
+ * FOR ANY SPECIAL, INCIDENTAL, INDIRECT, CONSEQUENTIAL DAMAGES WHATSOEVER
  * (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF BUSINESS PROFITS,
  * BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION, OR ANY OTHER PECUNIARY
  * LOSS) ARISING OUT OF THE USE OF OR INABILITY TO USE THE ENGINE AND/OR THE
@@ -89,9 +89,12 @@ namespace {
 }
 
 namespace View {
-    ConsoleInput::ConsoleInput(InputPresenterPtr input_presenter) : input_presenter_(std::move(input_presenter))
+    ConsoleInput::ConsoleInput(InputPresenterPtr input_presenter, std::shared_ptr<InputLineEditor> editor) :
+      input_presenter_(std::move(input_presenter)),
+      editor_(std::move(editor))
     {
         assert(input_presenter_ != nullptr);
+        assert(editor_ != nullptr);
         start();
     }
 
@@ -125,133 +128,82 @@ namespace View {
     {
         if (const auto& previous_input = input_presenter_->history_previous(); previous_input) {
             if (!saved_input_) {
-                saved_input_ = input_line_;
+                saved_input_ = editor_->line();
             }
 
-            clear_input();
-            input_line_ = *previous_input;
-            std::cout << input_line_;
-            cursor_position_ = input_line_.length();
+            editor_->set_line(*previous_input);
         }
     }
 
     void ConsoleInput::handle_down_arrow()
     {
         if (const auto& next_input = input_presenter_->history_next(); next_input || saved_input_) {
-            if (clear_input(); next_input) {
-                input_line_ = *next_input;
+            if (next_input) {
+                editor_->set_line(*next_input);
             }
             else {
-                input_line_ = *saved_input_;
+                editor_->set_line(*saved_input_);
                 saved_input_ = std::nullopt;
             }
-
-            std::cout << input_line_;
-            cursor_position_ = input_line_.length();
         }
     }
 
     void ConsoleInput::handle_left_arrow()
     {
-        if (0 == cursor_position_) {
-            return;
-        }
-
-        std::cout << '\b';
-        --cursor_position_;
+        editor_->left();
     }
 
     void ConsoleInput::handle_right_arrow()
     {
-        if (input_line_.length() == cursor_position_) {
-            return;
-        }
-
-        std::cout << input_line_[cursor_position_];
-        ++cursor_position_;
+        editor_->right();
     }
 
     void ConsoleInput::handle_backspace()
     {
-        if ((0 == cursor_position_) || input_line_.empty()) {
-            return;
-        }
-
-        --cursor_position_;
-        input_line_.erase(cursor_position_, 1);
-
-        std::cout << '\b';
-        std::cout << (input_line_.c_str() + cursor_position_);
-        std::cout << ' ';
-
-        for (auto i = input_line_.length() + 1; i > cursor_position_; --i) {
-            std::cout << '\b';
-        }
+        editor_->backspace();
     }
 
     void ConsoleInput::handle_delete()
     {
-        if (cursor_position_ >= input_line_.length()) {
-            return;
-        }
-
-        input_line_.erase(cursor_position_, 1);
-        std::cout << (input_line_.c_str() + cursor_position_);
-        std::cout << ' ';
-
-        for (auto i = input_line_.length() + 1; i > cursor_position_; --i) {
-            std::cout << '\b';
-        }
+        editor_->delete_char();
     }
 
     void ConsoleInput::handle_home()
     {
-        if (cursor_position_ != 0) {
-            cursor_position_ = 0;
-            std::cout << '\r';
-        }
+        editor_->home();
     }
 
     void ConsoleInput::handle_end()
     {
-        while (cursor_position_ < input_line_.length()) {
-            handle_right_arrow();
-        }
+        editor_->end();
     }
 
     void ConsoleInput::handle_tab()
     {
-        const auto& commands = input_presenter_->find_command_matches(input_line_);
+        const auto& commands = input_presenter_->find_command_matches(editor_->line());
 
         if (commands.empty()) {
             return;
         }
 
         if (1U == commands.size()) {
-            const auto completion = commands.front().substr(input_line_.length()) + " ";
-            input_line_.append(completion);
-            std::cout << completion;
+            const auto completion = commands.front().substr(editor_->line().length()) + " ";
+            editor_->insert_text(completion);
         }
         else {
-            clear_input();
+            editor_->with_suspended([&commands] {
+                std::cout << '\n';
+                print_command_matches(commands);
+                std::cout << '\n';
+            });
 
-            std::cout << '\n';
-            print_command_matches(commands);
-            std::cout << '\n';
-
-            input_line_ = find_common_command_prefix(commands);
-            std::cout << input_line_;
+            editor_->set_line(find_common_command_prefix(commands));
         }
-
-        cursor_position_ = input_line_.length();
     }
 
     void ConsoleInput::handle_newline()
     {
-        std::cout << '\n';
-        input_presenter_->enqueue_input(input_line_);
-        input_line_.clear();
-        cursor_position_ = 0;
+        input_presenter_->enqueue_input(editor_->submit_line());
     }
 
     void ConsoleInput::handle_char(const std::string::value_type ch)
@@ -260,23 +212,6 @@ namespace View {
             return;
         }
 
-        input_line_.insert(cursor_position_, 1, ch);
-        std::cout << (input_line_.c_str() + cursor_position_);
-        ++cursor_position_;
-
-        for (auto i = input_line_.length(); i > cursor_position_; --i) {
-            std::cout << '\b';
-        }
-    }
-
-    void ConsoleInput::clear_input()
-    {
-        if (!input_line_.empty()) {
-            handle_end();
-
-            for (auto i = input_line_.length(); i > 0; --i) {
-                std::cout << "\b \b";
-            }
-        }
+        editor_->insert_char(ch);
     }
 }

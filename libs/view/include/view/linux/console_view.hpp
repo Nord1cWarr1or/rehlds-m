@@ -22,13 +22,27 @@
 
 #include "util/log_output.hpp"
 #include "view/base_view.hpp"
+#include "view/input_line_editor.hpp"
 #include <fmt/core.h>
+#include <memory>
 
 namespace View {
     class ConsoleView final : public BaseView, public Util::LogOutput {
       public:
         /**
+         * @brief Constructs a new ConsoleView object.
+         *
+         * @param editor A shared pointer to the input line editor whose rendered
+         * line must be preserved across console output.
+         */
+        explicit ConsoleView(const std::shared_ptr<InputLineEditor>& editor);
+
+        /**
          * @brief Prints the given text.
+         *
+         * When an input line editor is set, the rendered input line is erased
+         * before the text is written and redrawn afterwards, so the text cannot
+         * visually overwrite the command the user is typing.
          *
          * @param text The text to be printed.
          *
@@ -52,7 +66,13 @@ namespace View {
          * @param message The formatted log message to be written.
          */
         void write_log(std::string_view message) override;
+
+      private:
+        /// The input line editor whose rendered line is preserved across console output.
+        std::shared_ptr<InputLineEditor> editor_;
     };
+
+    inline ConsoleView::ConsoleView(const std::shared_ptr<InputLineEditor>& editor) : editor_(editor) {}
 
     inline void ConsoleView::display_server_status(
       const float /* fps */, const int /* num_players */, const int /* max_players */, const std::string& /* map */)
@@ -62,6 +82,20 @@ namespace View {
 
     inline int ConsoleView::print(const std::string_view text)
     {
+        if (editor_ != nullptr) {
+            std::string output{text};
+
+            if (output.empty() || (output.back() != '\n')) {
+                output.push_back('\n');
+            }
+
+            editor_->with_suspended([&output] {
+                fmt::print("{}", output);
+            });
+
+            return std::fflush(stdout);
+        }
+
         fmt::print(text);
 
         return std::fflush(stdout);

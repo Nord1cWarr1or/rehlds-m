@@ -569,7 +569,8 @@
         "common_tests",
         "core_tests",
         "model_tests",
-        "util_tests"
+        "util_tests",
+        "view_tests"
       ]
     },
     {
@@ -728,7 +729,8 @@
         "common_tests",
         "core_tests",
         "model_tests",
-        "util_tests"
+        "util_tests",
+        "view_tests"
       ]
     }
   ],

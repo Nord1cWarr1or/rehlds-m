@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "view/input_line_editor.hpp"
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -45,8 +46,9 @@ namespace View {
          * @brief Constructs a new ConsoleInput object.
          *
          * @param input_presenter A shared pointer to an \c Presenter::InputPresenter object.
+         * @param editor A shared pointer to the \c InputLineEditor that renders the input line.
          */
-        explicit ConsoleInput(InputPresenterPtr input_presenter);
+        explicit ConsoleInput(InputPresenterPtr input_presenter, std::shared_ptr<InputLineEditor> editor);
 
         /// Move constructor.
         ConsoleInput(ConsoleInput&&) = delete;
@@ -79,20 +81,17 @@ namespace View {
         /// A shared pointer to an \c Presenter::InputPresenter
         InputPresenterPtr input_presenter_;
 
+        /// A shared pointer to the \c InputLineEditor rendering the input line.
+        std::shared_ptr<InputLineEditor> editor_;
+
         /// Indicates whether the input worker thread is running.
         std::atomic<bool> running_{};
 
         /// The input worker thread.
         std::thread input_thread_{};
 
-        /// The current input line.
-        std::string input_line_{};
-
         /// Saved input line.
         std::optional<std::string> saved_input_{};
-
-        /// The current cursor position in the input line.
-        std::string::size_type cursor_position_{};
 
 #ifndef _WIN32
         /// Handles ANSI escape codes.
@@ -133,8 +132,5 @@ namespace View {
 
         /// Reads input from the console (runs in a separate thread).
         void read_input();
-
-        /// Clears the current input line from the console.
-        void clear_input();
     };
 }

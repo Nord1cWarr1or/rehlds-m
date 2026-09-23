@@ -29,10 +29,13 @@
 #include "presenter/output_presenter.hpp"
 #include "view/console_input.hpp"
 #include "view/console_view.hpp"
+#include "view/input_line_editor.hpp"
 #include <memory>
 
 namespace {
-    int run_server_loop(const Core::CmdLineArgs& cmdline_args, const std::shared_ptr<View::BaseView>& view)
+    int run_server_loop(
+      const Core::CmdLineArgs& cmdline_args, const std::shared_ptr<View::BaseView>& view,
+      const std::shared_ptr<View::InputLineEditor>& editor)
     {
         auto& engine = Common::EngineWrapper::get_instance();
         auto* system_interface = engine.get_interface_system();
@@ -48,7 +51,7 @@ namespace {
           std::make_shared<Presenter::InputPresenter>(server_loop, input_history, console_commands);
 
         const auto output_presenter = std::make_unique<Presenter::OutputPresenter>(server_loop, view);
-        const auto console_input = std::make_unique<View::ConsoleInput>(input_presenter);
+        const auto console_input = std::make_unique<View::ConsoleInput>(input_presenter, editor);
 
         server_loop->run(serverapi_interface);
         serverapi_interface.shutdown();
@@ -60,7 +63,8 @@ namespace {
 int main(const int argc, const char** const argv)
 {
     auto cmdline_args = Core::CmdLineArgs::from_command_line(argc, argv);
-    const auto console_view = std::make_shared<View::ConsoleView>();
+    const auto console_editor = std::make_shared<View::InputLineEditor>();
+    const auto console_view = std::make_shared<View::ConsoleView>(console_editor);
 
     Core::init_logger(cmdline_args, console_view);
     const Core::CmdLineProcessor cmdline_processor{};
@@ -71,5 +75,5 @@ int main(const int argc, const char** const argv)
     Core::init_filesystem();
     Core::init_engine(cmdline_args);
 
-    return run_server_loop(cmdline_args, console_view);
+    return run_server_loop(cmdline_args, console_view, console_editor);
 }

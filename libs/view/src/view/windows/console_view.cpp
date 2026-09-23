@@ -43,7 +43,8 @@ namespace {
 }
 
 namespace View {
-    ConsoleView::ConsoleView() :
+    ConsoleView::ConsoleView(const std::shared_ptr<InputLineEditor>& editor) :
+      editor_(editor),
       stdout_handle_(Util::get_stdout_handle_or_abort()),
       console_window_handle_(Util::get_console_window_or_abort()),
       font_handle_(create_font_or_abort()),
