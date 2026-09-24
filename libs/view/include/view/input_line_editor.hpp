@@ -161,6 +161,16 @@ namespace View {
         std::string submit_line();
 
         /**
+         * @brief Writes text to the stream, preserving the rendered input line.
+         *
+         * The input line is erased before the text is written and redrawn afterwards,
+         * so the text cannot visually overwrite the command the user is typing.
+         *
+         * @param text The text to write.
+         */
+        void write_through(std::string_view text);
+
+        /**
          * @brief Runs the given function with the input line temporarily erased from the screen.
          *
          * The input line state is preserved; it is redrawn (with the cursor restored) after

@@ -40,9 +40,12 @@ namespace View {
         /**
          * @brief Prints the given text.
          *
-         * When an input line editor is set, the rendered input line is erased
-         * before the text is written and redrawn afterwards, so the text cannot
-         * visually overwrite the command the user is typing.
+         * The console output of the engine is line-based but may arrive in
+         * fragments (e.g. the echo command prints each argument separately,
+         * expecting the console to concatenate them). Complete lines are written
+         * with the input line preserved; a trailing fragment without a newline
+         * is buffered until the rest of the line arrives, or until it exceeds
+         * a reasonable size.
          *
          * @param text The text to be printed.
          *
@@ -70,6 +73,9 @@ namespace View {
       private:
         /// The input line editor whose rendered line is preserved across console output.
         std::shared_ptr<InputLineEditor> editor_;
+
+        /// The output fragment waiting for the rest of its line.
+        std::string pending_{};
     };
 
     inline ConsoleView::ConsoleView(const std::shared_ptr<InputLineEditor>& editor) : editor_(editor) {}
@@ -83,15 +89,25 @@ namespace View {
     inline int ConsoleView::print(const std::string_view text)
     {
         if (editor_ != nullptr) {
-            std::string output{text};
+            pending_.append(text.data(), text.size());
 
-            if (output.empty() || (output.back() != '\n')) {
-                output.push_back('\n');
+            std::size_t start = 0;
+
+            for (auto newline = pending_.find('\n', start); newline != std::string::npos;
+                 newline = pending_.find('\n', start)) {
+                editor_->write_through(std::string_view{pending_}.substr(start, (newline - start) + 1));
+                start = newline + 1;
             }
 
-            editor_->with_suspended([&output] {
-                fmt::print("{}", output);
-            });
+            pending_.erase(0, start);
+
+            // Flush abnormally long unterminated output instead of buffering it forever
+            constexpr auto max_pending_size = std::size_t{8192};
+
+            if (pending_.size() > max_pending_size) {
+                editor_->write_through(pending_ + '\n');
+                pending_.clear();
+            }
 
             return std::fflush(stdout);
         }

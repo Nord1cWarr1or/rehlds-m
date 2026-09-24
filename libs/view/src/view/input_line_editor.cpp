@@ -307,6 +307,23 @@ namespace View {
         return utf8::encode(input);
     }
 
+    void InputLineEditor::write_through(const std::string_view text)
+    {
+        const std::lock_guard lock{mutex_};
+
+        if (!line_.empty()) {
+            *stream_ << "\r\x1B[K";
+        }
+
+        *stream_ << text;
+
+        if (!line_.empty()) {
+            redraw();
+        }
+
+        stream_->flush();
+    }
+
     void InputLineEditor::redraw()
     {
         *stream_ << '\r' << utf8::encode(line_) << '\r';
